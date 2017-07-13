@@ -220,13 +220,6 @@ macro(_test_compiler_hidden_visibility)
     check_cxx_compiler_flag(${COMPILER_HIDDEN_VISIBILITY_FLAGS} COMPILER_HAS_HIDDEN_VISIBILITY)
     check_cxx_compiler_flag(${COMPILER_HIDDEN_INLINE_VISIBILITY_FLAGS} COMPILER_HAS_HIDDEN_INLINE_VISIBILITY)
   endif()
-  # Urho3D - and reset those variables if the test failed
-  if (NOT COMPILER_HAS_HIDDEN_VISIBILITY)
-    unset (COMPILER_HIDDEN_VISIBILITY_FLAGS)
-  endif ()
-  if (NOT COMPILER_HAS_HIDDEN_INLINE_VISIBILITY)
-    unset (COMPILER_HIDDEN_INLINE_VISIBILITY_FLAGS)
-  endif ()
 endmacro()
 
 macro(_test_compiler_has_deprecated)

@@ -40,6 +40,8 @@ class btDispatcher;
 class btDynamicsWorld;
 class btPersistentManifold;
 
+class btSoftBodyWorldInfo;
+
 namespace Urho3D
 {
 
@@ -53,6 +55,10 @@ class RigidBody;
 class Scene;
 class Serializer;
 class XMLElement;
+
+class SoftBody;
+class IndexBuffer;
+class VertexBuffer;
 
 struct CollisionGeometryData;
 
@@ -284,6 +290,11 @@ public:
     /// Overrides of the internal configuration.
     static struct PhysicsWorldConfig config;
 
+	btSoftBodyWorldInfo* GetSoftBodyInfo() { return m_softBodyWorldInfo; }
+    btSoftBodyWorldInfo* m_softBodyWorldInfo;
+    void AddSoftBody(SoftBody* body);
+    void RemoveSoftBody(SoftBody* body);
+
 protected:
     /// Handle scene being assigned.
     virtual void OnSceneSet(Scene* scene);
@@ -356,6 +367,8 @@ private:
     DebugRenderer* debugRenderer_;
     /// Debug draw flags.
     int debugMode_;
+
+    PODVector<SoftBody*> softBodies_;
 };
 
 /// Register Physics library objects.

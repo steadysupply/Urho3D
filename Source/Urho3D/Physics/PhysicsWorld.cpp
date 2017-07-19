@@ -36,6 +36,7 @@
 #include "../Physics/PhysicsWorld.h"
 #include "../Physics/RaycastVehicle.h"
 #include "../Physics/RigidBody.h"
+#include "../Physics/SoftBody.h"
 #include "../Scene/Scene.h"
 #include "../Scene/SceneEvents.h"
 
@@ -46,6 +47,9 @@
 #include <Bullet/BulletCollision/CollisionShapes/btSphereShape.h>
 #include <Bullet/BulletDynamics/ConstraintSolver/btSequentialImpulseConstraintSolver.h>
 #include <Bullet/BulletDynamics/Dynamics/btDiscreteDynamicsWorld.h>
+#include <Bullet/BulletSoftBody/btSoftBody.h>
+#include <Bullet/BulletSoftBody/btSoftBodyRigidBodyCollisionConfiguration.h>
+#include <Bullet/BulletSoftBody/btSoftRigidDynamicsWorld.h>
 
 extern ContactAddedCallback gContactAddedCallback;
 
@@ -138,12 +142,12 @@ PhysicsWorld::PhysicsWorld(Context* context) :
     if (PhysicsWorld::config.collisionConfig_)
         collisionConfiguration_ = PhysicsWorld::config.collisionConfig_;
     else
-        collisionConfiguration_ = new btDefaultCollisionConfiguration();
+        collisionConfiguration_ = new btSoftBodyRigidBodyCollisionConfiguration();
 
     collisionDispatcher_ = new btCollisionDispatcher(collisionConfiguration_);
     broadphase_ = new btDbvtBroadphase();
     solver_ = new btSequentialImpulseConstraintSolver();
-    world_ = new btDiscreteDynamicsWorld(collisionDispatcher_.Get(), broadphase_.Get(), solver_.Get(), collisionConfiguration_);
+    world_ = new btSoftRigidDynamicsWorld(collisionDispatcher_.Get(), broadphase_.Get(), solver_.Get(), collisionConfiguration_, NULL);
 
     world_->setGravity(ToBtVector3(DEFAULT_GRAVITY));
     world_->getDispatchInfo().m_useContinuous = true;
@@ -152,6 +156,17 @@ PhysicsWorld::PhysicsWorld(Context* context) :
     world_->setInternalTickCallback(InternalPreTickCallback, static_cast<void*>(this), true);
     world_->setInternalTickCallback(InternalTickCallback, static_cast<void*>(this), false);
     world_->setSynchronizeAllMotionStates(true);
+
+    m_softBodyWorldInfo = new btSoftBodyWorldInfo();
+    m_softBodyWorldInfo->m_dispatcher = collisionDispatcher_.Get();
+    m_softBodyWorldInfo->m_broadphase = broadphase_.Get();
+    m_softBodyWorldInfo->air_density = (btScalar)1.2;
+    m_softBodyWorldInfo->water_density = 0;
+    m_softBodyWorldInfo->water_offset = 0;
+    m_softBodyWorldInfo->water_normal = btVector3(0, 0, 0);
+    m_softBodyWorldInfo->m_gravity.setValue(0, -10, 0);
+    m_softBodyWorldInfo->m_sparsesdf.Initialize();
+    softBodies_.Clear();
 }
 
 
@@ -168,6 +183,9 @@ PhysicsWorld::~PhysicsWorld()
 
         for (PODVector<CollisionShape*>::Iterator i = collisionShapes_.Begin(); i != collisionShapes_.End(); ++i)
             (*i)->ReleaseShape();
+
+        for (PODVector<SoftBody*>::Iterator i = softBodies_.Begin(); i != softBodies_.End(); ++i)
+            (*i)->ReleaseBody();
     }
 
     world_.Reset();
@@ -179,6 +197,13 @@ PhysicsWorld::~PhysicsWorld()
     if (!PhysicsWorld::config.collisionConfig_)
         delete collisionConfiguration_;
     collisionConfiguration_ = 0;
+
+    if (m_softBodyWorldInfo) {
+        m_softBodyWorldInfo->m_dispatcher = 0;
+        m_softBodyWorldInfo->m_broadphase = 0;
+        delete m_softBodyWorldInfo;
+        m_softBodyWorldInfo = 0;
+    }
 }
 
 void PhysicsWorld::RegisterObject(Context* context)
@@ -716,6 +741,16 @@ void PhysicsWorld::RemoveRigidBody(RigidBody* body)
     delayedWorldTransforms_.Erase(body);
 }
 
+void PhysicsWorld::AddSoftBody(SoftBody* body)
+{
+    softBodies_.Push(body);
+}
+
+void PhysicsWorld::RemoveSoftBody(SoftBody* body)
+{
+    softBodies_.Remove(body);
+}
+
 void PhysicsWorld::AddCollisionShape(CollisionShape* shape)
 {
     collisionShapes_.Push(shape);
@@ -1087,6 +1122,7 @@ void RegisterPhysicsLibrary(Context* context)
     Constraint::RegisterObject(context);
     PhysicsWorld::RegisterObject(context);
     RaycastVehicle::RegisterObject(context);
+    SoftBody::RegisterObject(context);
 }
 
 }
